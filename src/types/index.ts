@@ -46,3 +46,12 @@ export interface Position {
   sizeUsd: number;
   openedAt: number;
 }
+
+export interface LivePosition {
+  marketId: string;
+  conditionId: string;
+  side: Side;
+  tokenId: string;
+  sizeShares: number;
+  openedAt: number;
+}
