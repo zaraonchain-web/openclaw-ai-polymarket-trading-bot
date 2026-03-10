@@ -8,7 +8,7 @@ export class LlmScorer {
   ) {}
 
   async score(features: FeatureVector): Promise<number> {
-    if (!this.apiKey) return 0; // neutral if not configured
+    if (!this.apiKey) return 0;
 
     const prompt = `Score short-horizon UP probability bias in [-1,1].\nfeatures=${JSON.stringify(features)}`;
 

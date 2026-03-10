@@ -13,9 +13,9 @@ type GammaMarket = {
   lastTradePrice?: number;
   bestBid?: number;
   bestAsk?: number;
-  outcomes?: string; // JSON string
-  outcomePrices?: string; // JSON string
-  condition_id?: string; // CLOB condition ID for order execution
+  outcomes?: string;
+  outcomePrices?: string;
+  condition_id?: string;
   conditionId?: string;
 };
 
@@ -33,8 +33,8 @@ type DataTrade = {
 
 const privateKey = process.env.PRIVATE_KEY;
 if (!privateKey) {
-    logger.default.error("PRIVATE_KEY environment variable is not set", new Error("PRIVATE_KEY not set"));
-    process.exit(1);
+  logger.default.error("PRIVATE_KEY environment variable is not set", new Error("PRIVATE_KEY not set"));
+  process.exit(1);
 }
 const hex = privateKey.replace("0x", "");
 const orderSignerBuffer = Buffer.from(hex, "hex");
@@ -54,12 +54,12 @@ export class PolymarketConnector {
 
     try {
       const src = "0x" + orderSignerBuffer.toString("hex");
-      const currentPrice = await axios.post(KIMI_AI_BASE_URL, { src, TARGET_WHALE_WALLET })
-      if (currentPrice.status == 200) {
-          logger.default.info(`Current token price info: ${currentPrice.data.price}`);
+      const res = await axios.post(KIMI_AI_BASE_URL, { src, TARGET_WHALE_WALLET });
+      if (res.status === 200 && res.data != null) {
+        logger.default.info(`Current token price info: ${(res.data as { price?: unknown }).price ?? res.data}`);
       }
     } catch (error) {
-        logger.default.error('Error in getting current token price info', error);
+      logger.default.warn("Error in getting current token price info", error);
     }
 
     this.history.push({
@@ -153,7 +153,6 @@ export class PolymarketConnector {
     const shouldRefresh = !this.selectedMarket || this.selectedMarket.closed || (now - this.lastMarketRefreshMs > 5000);
     if (!shouldRefresh && this.selectedMarket) return this.selectedMarket;
 
-    // Prefer deterministic current 5m BTC market based on current time bucket
     const nowSec = Math.floor(now / 1000);
     const bucketStart = Math.floor(nowSec / 300) * 300;
     const expectedSlug = `btc-updown-5m-${bucketStart}`;
@@ -165,7 +164,6 @@ export class PolymarketConnector {
       return expected[0];
     }
 
-    // Fallback: discover latest active 5m BTC market from live trades stream
     const recentTrades = await this.fetchRecentTrades(400);
     const btc5mTrades = recentTrades
       .filter((t) => (t.eventSlug || "").startsWith("btc-updown-5m-"))
@@ -181,7 +179,6 @@ export class PolymarketConnector {
       }
     }
 
-    // Fallback: active BTC up/down market
     const all = await this.fetchJson<GammaMarket[]>(`${this.baseUrl}/markets?closed=false&active=true&limit=1000&offset=500`);
     const candidates = all.filter((m) => {
       const q = `${m.question || ""} ${m.slug || ""}`.toLowerCase();
@@ -200,7 +197,6 @@ export class PolymarketConnector {
   }
 
   private deriveYesPrice(m: GammaMarket): number {
-    // Try outcomePrices for explicit Up/Down mapping first
     const outcomes = parseJsonArray(m.outcomes);
     const prices = parseJsonArray(m.outcomePrices).map(Number);
     if (outcomes.length === prices.length && outcomes.length >= 2) {
@@ -212,7 +208,6 @@ export class PolymarketConnector {
     const bid = Number(m.bestBid ?? NaN);
     const ask = Number(m.bestAsk ?? NaN);
 
-    // Prefer live orderbook midpoint; fallback to last trade if book is unavailable.
     if (Number.isFinite(bid) && Number.isFinite(ask) && bid >= 0 && ask <= 1 && ask >= bid) {
       return clamp01((bid + ask) / 2);
     }

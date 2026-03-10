@@ -1,7 +1,6 @@
 import { FeatureVector, Prediction } from "../types/index.js";
 
 export function predict(features: FeatureVector, llmBias: number): Prediction {
-  // Lightweight ensemble (heuristic baseline)
   const z =
     3.2 * features.returns30s +
     1.8 * features.returns2m +

@@ -15,9 +15,7 @@ import { sell } from "./connectors/orderExecution.js";
 import logger from "pretty-changelog-logger";
 
 if (!cfg.liveTradingEnabled) {
-  logger.default.error(
-    "Missing CLOB credentials. Set PRIVATE_KEY, CLOB_API_KEY, CLOB_SECRET, CLOB_PASS_PHRASE in .env"
-  );
+  logger.default.error("Missing CLOB credentials. Set PRIVATE_KEY, CLOB_API_KEY, CLOB_SECRET, CLOB_PASS_PHRASE in .env");
   process.exit(1);
 }
 

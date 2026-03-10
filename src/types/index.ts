@@ -2,14 +2,14 @@ export type Side = "YES" | "NO";
 
 export interface MarketTick {
   marketId: string;
-  yesPrice: number; // 0..1
-  noPrice: number;  // 0..1
+  yesPrice: number;
+  noPrice: number;
   ts: number;
 }
 
 export interface WhaleFlow {
   marketId: string;
-  netYesNotional: number; // + means YES-biased flow
+  netYesNotional: number;
   grossNotional: number;
   tradeCount: number;
   ts: number;
@@ -26,8 +26,8 @@ export interface FeatureVector {
   returns30s: number;
   returns2m: number;
   vol2m: number;
-  whaleBias: number; // -1..1
-  whaleIntensity: number; // 0..1
+  whaleBias: number;
+  whaleIntensity: number;
   ts: number;
 }
 

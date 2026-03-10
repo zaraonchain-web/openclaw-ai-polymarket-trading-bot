@@ -1,7 +1,3 @@
-/**
- * Live order execution via Polymarket CLOB API.
- * Requires PRIVATE_KEY, CLOB_API_KEY, CLOB_SECRET, CLOB_PASS_PHRASE in env.
- */
 import { ClobClient, Side, OrderType } from "@polymarket/clob-client";
 import { Wallet } from "ethers";
 import type { ApiKeyCreds } from "@polymarket/clob-client";
@@ -37,9 +33,6 @@ function getClient(): ClobClient {
 
 export type TokenIds = { yesTokenId: string; noTokenId: string };
 
-/**
- * Resolve YES/NO token IDs for a market by condition ID (public, no auth).
- */
 export async function getTokenIdsForCondition(conditionId: string): Promise<TokenIds | null> {
   try {
     const client = getPublicClient();
@@ -58,21 +51,17 @@ export async function getTokenIdsForCondition(conditionId: string): Promise<Toke
 export type PlaceOrderParams = {
   tokenId: string;
   side: "BUY" | "SELL";
-  size: number; // shares for limit; for market BUY = USD amount, SELL = shares
-  price: number; // 0..1, must match market tick size
+  size: number;
+  price: number;
   orderType?: "GTC" | "FOK" | "FAK";
 };
 
-export type PlaceOrderResult = {
-  success: boolean;
+export type PlaceOrderResult = {  success: boolean;
   orderID?: string;
   status?: string;
   errorMsg?: string;
 };
 
-/**
- * Place a limit order (GTC) or market order (FOK/FAK).
- */
 export async function placeOrder(params: PlaceOrderParams): Promise<PlaceOrderResult> {
   const client = getClient();
   const { tokenId, side, size, price, orderType = "GTC" } = params;
@@ -91,7 +80,6 @@ export async function placeOrder(params: PlaceOrderParams): Promise<PlaceOrderRe
         status: res.status
       };
     }
-    // Market: FOK or FAK — BUY = amount in USD, SELL = amount in shares
     const marketType = orderType === "FAK" ? OrderType.FAK : OrderType.FOK;
     const marketOrder = await client.createAndPostMarketOrder(
       {
@@ -117,9 +105,6 @@ export async function placeOrder(params: PlaceOrderParams): Promise<PlaceOrderRe
   }
 }
 
-/**
- * Market buy: spend up to amountUsd at price at or better than priceLimit.
- */
 export async function buy(
   tokenId: string,
   amountUsd: number,
@@ -134,9 +119,6 @@ export async function buy(
   });
 }
 
-/**
- * Market sell: sell sizeShares at price at or better than priceLimit.
- */
 export async function sell(
   tokenId: string,
   sizeShares: number,
