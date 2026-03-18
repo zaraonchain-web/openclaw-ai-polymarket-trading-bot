@@ -9,7 +9,7 @@ A **TypeScript bot** that predicts whether Polymarket’s **5-minute Bitcoin Up/
 ## 📋 What does this bot do?
 
 1. **📍 Picks a market**  
-   It finds the current active “BTC up or down in 5 minutes” market on Polymarket (or uses a market you pin in config).
+   It finds the current active “BTC up or down in 5 minutes” market on Polymarket (Gamma API + time bucket, with fallbacks via Data API and active-market scan).
 
 2. **📊 Collects data every 15 seconds**  
    - Latest YES price from the order book  
@@ -76,6 +76,8 @@ Edit `.env` and set CLOB credentials (see [Environment variables](#environment-v
 npm run dev
 ```
 
+Or after a build: `npm run build && npm start` (runs `dist/main.js`).
+
 The bot places real orders when the signal is OPEN YES/NO. It logs e.g. `LIVE BUY orderID=...` and records positions in `open-positions.json`. If `CLOSE_AFTER_SECONDS` is set (e.g. 300), positions are closed with a market sell after that many seconds.
 
 ### 3. 📊 (Optional) Run the Compare UI
@@ -87,6 +89,8 @@ npm run ui
 ```
 
 Open **http://localhost:8787** in your browser.
+
+![Compare UI — 5m Prediction Lab](assets/Screenshot.png)
 
 - **Get Prediction** 🔍 — fetches the same snapshot the bot uses (market, current YES price, prediction, whale stats).  
 - **Auto Compare** ⏱️ — you set “Entry YES price” and “Auto settle delay (sec)” (e.g. 300 for 5 min). The UI waits that long, then fetches the new YES price and records whether the bot’s predicted side (YES/NO) would have been correct.  
@@ -104,6 +108,7 @@ Copy `.env.example` to `.env` and adjust as needed.
 |----------|-------------|--------|
 | **Data sources** | | |
 | `POLYMARKET_REST_BASE` | Gamma API base URL | `https://gamma-api.polymarket.com` |
+| `BINANCE_REST_BASE` | Binance Futures REST URL | `https://fapi.binance.com` |
 | **CLOB (required)** | | |
 | `PRIVATE_KEY` | Wallet private key (hex) | (required) |
 | `CLOB_API_KEY` | From Polymarket CLOB “create or derive API key” | (required) |
@@ -171,7 +176,8 @@ The bot **places real orders** when the signal is OPEN YES or OPEN NO:
 |------|------|
 | `src/main.ts` | Entry point: loop every N seconds, fetch data → features → predict → place orders |
 | `src/config.ts` | Reads `.env`, exposes `cfg` (URLs, keys, `liveTradingEnabled`, `closeAfterSeconds`) |
-| `src/connectors/polymarket.ts` | Talks to Gamma API (market, ticks) and Data API (trades for whale flow). Exposes `getConditionId()` for live orders |
+| `src/types/index.ts` | Shared types: `MarketTick`, `WhaleFlow`, `FeatureVector`, `Prediction`, `LivePosition`, etc. |
+| `src/connectors/polymarket.ts` | Gamma API (market resolution, YES price) + Data API (whale flow). `getConditionId()` for CLOB orders |
 | `src/connectors/orderExecution.ts` | CLOB client wrapper: `placeOrder`, `buy`, `sell`, `getTokenIdsForCondition` |
 | `src/engine/features.ts` | Builds feature vector from ticks + whale (returns, vol, whale bias/intensity) |
 | `src/engine/predictor.ts` | Combines features + LLM bias → pUp5m, confidence |

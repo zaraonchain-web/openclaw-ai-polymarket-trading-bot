@@ -3,52 +3,133 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Polymarket 5m Compare UI</title>
+    <title>5m Compare — Polymarket</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Outfit:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="./style.css" />
   </head>
   <body>
-    <main>
-      <h1>Polymarket 5m Prediction Compare</h1>
-      <p class="muted">Compare bot prediction vs actual next 5-minute move.</p>
+    <div class="bg-orbs" aria-hidden="true"></div>
 
-      <section class="card">
-        <div class="row">
-          <button id="refresh">Get Prediction</button>
-          <span id="status">idle</span>
+    <header class="site-header">
+      <div class="site-header__brand">
+        <span class="logo" aria-hidden="true">🦞</span>
+        <div>
+          <h1 class="site-header__title">5m Prediction Lab</h1>
+          <p class="site-header__tagline">Compare bot signal vs. the next five minutes</p>
         </div>
-        <div id="snapshot" class="grid"></div>
-      </section>
+      </div>
+      <div class="site-header__actions">
+        <button type="button" id="refresh" class="btn btn--primary">
+          <span class="btn__icon" aria-hidden="true">⟳</span>
+          Get prediction
+        </button>
+        <span id="status" class="status-pill status-pill--idle" data-state="idle">Ready</span>
+      </div>
+    </header>
 
-      <section class="card">
-        <h2>Auto Compare (5m)</h2>
-        <div class="form">
-          <label>Entry YES price <input id="entryYes" type="number" min="0" max="1" step="0.0001" /></label>
-          <label>Auto settle delay (sec) <input id="delaySec" type="number" min="10" step="1" value="300" /></label>
-          <button id="startAuto">Start Auto Compare</button>
+    <main class="layout">
+      <section class="panel panel--hero">
+        <div class="panel__head">
+          <h2 class="panel__title">Live snapshot</h2>
+          <span class="panel__hint">Gamma + model</span>
         </div>
-        <p class="muted" id="pendingInfo">No pending auto-compare.</p>
+        <div id="snapshot" class="stat-grid"></div>
       </section>
 
-      <section class="card">
-        <h2>Whale Panel (live sample)</h2>
-        <div id="whaleStats" class="muted">No whale data yet.</div>
-        <table>
-          <thead>
-            <tr><th>Wallet</th><th>Net YES $</th><th>Gross $</th><th>Bias</th></tr>
-          </thead>
-          <tbody id="whales"></tbody>
-        </table>
+      <section class="panel">
+        <div class="panel__head">
+          <h2 class="panel__title">Auto compare</h2>
+          <span class="panel__hint">Schedule a settle check</span>
+        </div>
+        <div class="auto-form">
+          <div class="field">
+            <label class="field__label" for="entryYes">Entry YES price</label>
+            <input id="entryYes" class="field__input" type="number" min="0" max="1" step="0.0001" placeholder="0.52" />
+          </div>
+          <div class="field">
+            <label class="field__label" for="delaySec">Settle after (sec)</label>
+            <input id="delaySec" class="field__input" type="number" min="10" step="1" value="300" />
+          </div>
+          <button type="button" id="startAuto" class="btn btn--accent btn--block">Start auto compare</button>
+        </div>
+        <div class="pending-bar" id="pendingWrap" hidden>
+          <div class="pending-bar__track">
+            <div class="pending-bar__fill" id="pendingFill"></div>
+          </div>
+          <p class="pending-bar__text" id="pendingInfo">No pending run.</p>
+        </div>
+        <p class="pending-idle muted" id="pendingIdle">No pending auto-compare.</p>
       </section>
 
-      <section class="card">
-        <h2>History</h2>
-        <div id="stats" class="muted"></div>
-        <table>
-          <thead>
-            <tr><th>Time</th><th>Market</th><th>Pred Side</th><th>Entry</th><th>Exit</th><th>Actual</th><th>Correct</th></tr>
-          </thead>
-          <tbody id="history"></tbody>
-        </table>
+      <div class="two-col">
+        <section class="panel panel--whale">
+          <div class="panel__head">
+            <h2 class="panel__title">Whale flow</h2>
+            <span class="panel__hint">Live sample</span>
+          </div>
+          <div id="whaleStats" class="whale-summary muted">No whale data yet.</div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Wallet</th>
+                  <th>Net YES</th>
+                  <th>Gross</th>
+                  <th>Bias</th>
+                </tr>
+              </thead>
+              <tbody id="whales"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel panel--stats">
+          <div class="accuracy-ring" id="accuracyRing" aria-label="Accuracy">
+            <svg viewBox="0 0 100 100" class="accuracy-ring__svg">
+              <defs>
+                <linearGradient id="accGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stop-color="#6366f1" />
+                  <stop offset="100%" stop-color="#22d3ee" />
+                </linearGradient>
+              </defs>
+              <circle class="accuracy-ring__bg" cx="50" cy="50" r="42" />
+              <circle class="accuracy-ring__fg" id="accuracyArc" cx="50" cy="50" r="42" />
+            </svg>
+            <div class="accuracy-ring__label">
+              <span class="accuracy-ring__value" id="accuracyValue">—</span>
+              <span class="accuracy-ring__sub">accuracy</span>
+            </div>
+          </div>
+          <div class="mini-stats" id="stats"></div>
+        </section>
+      </div>
+
+      <section class="panel panel--history">
+        <div class="panel__head">
+          <h2 class="panel__title">History</h2>
+          <span class="panel__hint">Stored locally</span>
+        </div>
+        <div class="table-wrap table-wrap--scroll">
+          <table class="data-table data-table--history">
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Market</th>
+                <th>Pred</th>
+                <th>Entry</th>
+                <th>Exit</th>
+                <th>Actual</th>
+                <th>Result</th>
+              </tr>
+            </thead>
+            <tbody id="history"></tbody>
+          </table>
+        </div>
       </section>
     </main>
 
