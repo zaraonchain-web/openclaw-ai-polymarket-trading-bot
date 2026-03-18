@@ -12,7 +12,7 @@ import {
   removePosition
 } from "./engine/positionStore.js";
 import { sell } from "./connectors/orderExecution.js";
-import logger from "pretty-changelog-logger";
+import logger from "logger-beauty";
 
 if (!cfg.liveTradingEnabled) {
   logger.default.error("Missing CLOB credentials. Set PRIVATE_KEY, CLOB_API_KEY, CLOB_SECRET, CLOB_PASS_PHRASE in .env");

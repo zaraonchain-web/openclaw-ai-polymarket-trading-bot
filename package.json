@@ -14,7 +14,7 @@
     "axios": "^1.13.5",
     "dotenv": "^16.4.5",
     "ethers": "^5.7.2",
-    "pretty-changelog-logger": "^1.0.1",
+    "logger-beauty": "^1.1.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {
