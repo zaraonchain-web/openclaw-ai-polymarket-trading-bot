@@ -6,7 +6,29 @@ type CacheEntry = {
 };
 
 const cache = new Map<string, CacheEntry>();
+
+/**
+ * How many recent trades we pull from data-api.polymarket.com.
+ *
+ * IMPORTANT LIMITATION: The data API returns trades in reverse-chronological
+ * order. At high market activity (~300+ trades/min across all markets),
+ * 5,000 trades may only cover the last 10–30 minutes of history — meaning
+ * "historical winrate" is actually very short-term recency bias.
+ *
+ * Increasing this value gives more history but costs more bandwidth and
+ * processing time each cache refresh. 10,000 is a reasonable upper bound
+ * before the API starts rate-limiting. For genuine statistical significance
+ * you'd want 50+ resolved markets per wallet; at 5k trades you may only
+ * see 5–15 markets per active wallet, which is why MIN_MARKETS_FOR_CONFIDENCE
+ * is set conservatively.
+ */
 const TRADE_LIMIT = 5000;
+
+/**
+ * Minimum number of resolved markets a wallet must appear in before we trust
+ * its winrate. Below this, we return 0.5 (coin-flip default) so the whale
+ * filter won't count wallets with a lucky 1-for-1 record as high-confidence.
+ */
 const MIN_MARKETS_FOR_CONFIDENCE = 5;
 
 function clamp01(v: number): number {
