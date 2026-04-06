@@ -25,6 +25,21 @@ function validHttpUrl(s: string): boolean {
   }
 }
 
+/**
+ * Validates the bot environment.
+ *
+ * PAPER MODE (default / safe):
+ *   Leave PRIVATE_KEY blank (or omit it) in .env.
+ *   The bot runs the full prediction loop and logs every signal but never
+ *   touches the CLOB — no real orders, no real money at risk.
+ *   cfg.liveTradingEnabled will be false.
+ *
+ * LIVE MODE:
+ *   Set a valid PRIVATE_KEY in .env.
+ *   The bot will place real FOK buy orders and force-exit near settlement.
+ *   CLOB_API_KEY / CLOB_SECRET / CLOB_PASS_PHRASE are optional — if omitted
+ *   they are derived automatically via createOrDeriveApiKey().
+ */
 export function validateBotEnv(): void {
   const errors: string[] = [];
   const pk = (process.env.PRIVATE_KEY ?? "").trim();
@@ -32,36 +47,40 @@ export function validateBotEnv(): void {
   const secret = (process.env.CLOB_SECRET ?? "").trim();
   const pass = (process.env.CLOB_PASS_PHRASE ?? "").trim();
 
-  if (!pk) errors.push("PRIVATE_KEY is missing.");
-  else if (!validPrivateKey(pk)) errors.push("PRIVATE_KEY must be 64 hex chars (optional 0x prefix).");
-  else if (isPlaceholder(pk)) errors.push("PRIVATE_KEY is still the example placeholder — set your real key.");
+  // PRIVATE_KEY is OPTIONAL — absence means paper-only mode
+  if (pk) {
+    if (isPlaceholder(pk)) {
+      errors.push("PRIVATE_KEY looks like the example placeholder — set your real key or remove it to run in paper mode.");
+    } else if (!validPrivateKey(pk)) {
+      errors.push("PRIVATE_KEY must be 64 hex chars (with or without 0x prefix).");
+    }
+  }
 
+  // CLOB creds: either all three or none (auto-derive). Only relevant in live mode.
   const clobSet = [key, secret, pass].filter(Boolean).length;
-  if (clobSet === 0) {
-    // OK — CLOB creds will be created or derived at runtime via createOrDeriveApiKey()
-  } else if (clobSet < 3) {
-    errors.push("Either omit CLOB_API_KEY, CLOB_SECRET, CLOB_PASS_PHRASE (auto-derive) or set all three.");
-  } else {
+  if (clobSet > 0 && clobSet < 3) {
+    errors.push("Set all three of CLOB_API_KEY, CLOB_SECRET, CLOB_PASS_PHRASE — or omit all three to auto-derive.");
+  } else if (clobSet === 3) {
     if (isPlaceholder(key)) errors.push("CLOB_API_KEY is still a placeholder.");
     if (isPlaceholder(secret)) errors.push("CLOB_SECRET is still a placeholder.");
     if (isPlaceholder(pass)) errors.push("CLOB_PASS_PHRASE is still a placeholder.");
   }
 
   if (!validHttpUrl(cfg.polymarketRestBase)) {
-    errors.push(`POLYMARKET_REST_BASE must be http(s): got "${cfg.polymarketRestBase}"`);
+    errors.push(`POLYMARKET_REST_BASE must be an http(s) URL (got "${cfg.polymarketRestBase}").`);
   }
   if (!validHttpUrl(cfg.clobApiUrl)) {
-    errors.push(`CLOB_API_URL must be http(s): got "${cfg.clobApiUrl}"`);
+    errors.push(`CLOB_API_URL must be an http(s) URL (got "${cfg.clobApiUrl}").`);
   }
 
   if (!Number.isFinite(cfg.loopSeconds) || cfg.loopSeconds < 1 || cfg.loopSeconds > 3600) {
     errors.push(`LOOP_SECONDS must be 1–3600 (got ${cfg.loopSeconds}).`);
   }
   if (!Number.isFinite(cfg.maxPositionUsd) || cfg.maxPositionUsd <= 0 || cfg.maxPositionUsd > 1e7) {
-    errors.push(`MAX_POSITION_USD must be > 0 and ≤ 10M (got ${cfg.maxPositionUsd}).`);
+    errors.push(`MAX_POSITION_USD must be > 0 and ≤ 10,000,000 (got ${cfg.maxPositionUsd}).`);
   }
   if (!Number.isFinite(cfg.edgeThreshold) || cfg.edgeThreshold <= 0 || cfg.edgeThreshold >= 0.5) {
-    errors.push(`EDGE_THRESHOLD must be between 0 and 0.5 (got ${cfg.edgeThreshold}).`);
+    errors.push(`EDGE_THRESHOLD must be between 0 and 0.5 exclusive (got ${cfg.edgeThreshold}).`);
   }
   if (!Number.isFinite(cfg.confidenceThreshold) || cfg.confidenceThreshold <= 0 || cfg.confidenceThreshold > 1) {
     errors.push(`CONFIDENCE_THRESHOLD must be in (0, 1] (got ${cfg.confidenceThreshold}).`);
@@ -76,7 +95,7 @@ export function validateBotEnv(): void {
     errors.push(`EMA_SLOW must be an integer in [3, 200] (got ${cfg.emaSlow}).`);
   }
   if (cfg.emaFast >= cfg.emaSlow) {
-    errors.push(`EMA_FAST must be smaller than EMA_SLOW (got ${cfg.emaFast} >= ${cfg.emaSlow}).`);
+    errors.push(`EMA_FAST (${cfg.emaFast}) must be smaller than EMA_SLOW (${cfg.emaSlow}).`);
   }
   if (!Number.isFinite(cfg.rsiPeriod) || !Number.isInteger(cfg.rsiPeriod) || cfg.rsiPeriod < 2 || cfg.rsiPeriod > 100) {
     errors.push(`RSI_PERIOD must be an integer in [2, 100] (got ${cfg.rsiPeriod}).`);
@@ -88,16 +107,16 @@ export function validateBotEnv(): void {
     errors.push(`WHALE_MIN_NOTIONAL must be >= 0 (got ${cfg.whaleMinNotional}).`);
   }
   if (!Number.isFinite(cfg.walletWinrateTimeoutMs) || cfg.walletWinrateTimeoutMs < 500 || cfg.walletWinrateTimeoutMs > 20000) {
-    errors.push(`WALLET_WINRATE_TIMEOUT_MS must be in [500, 20000] (got ${cfg.walletWinrateTimeoutMs}).`);
+    errors.push(`WALLET_WINRATE_TIMEOUT_MS must be in [500, 20000] ms (got ${cfg.walletWinrateTimeoutMs}).`);
   }
   if (!Number.isFinite(cfg.walletWinrateCacheTtlSec) || cfg.walletWinrateCacheTtlSec < 10 || cfg.walletWinrateCacheTtlSec > 86400) {
-    errors.push(`WALLET_WINRATE_CACHE_TTL_SEC must be in [10, 86400] (got ${cfg.walletWinrateCacheTtlSec}).`);
+    errors.push(`WALLET_WINRATE_CACHE_TTL_SEC must be in [10, 86400] seconds (got ${cfg.walletWinrateCacheTtlSec}).`);
   }
   if (!Number.isFinite(cfg.clobChainId) || !Number.isInteger(cfg.clobChainId) || cfg.clobChainId < 1) {
-    errors.push(`CLOB_CHAIN_ID must be a positive integer (got ${cfg.clobChainId}).`);
+    errors.push(`CLOB_CHAIN_ID must be a positive integer (got ${cfg.clobChainId}). Polymarket mainnet = 137.`);
   }
   if (!Number.isFinite(cfg.closeAfterSeconds) || cfg.closeAfterSeconds < 0) {
-    errors.push(`CLOSE_AFTER_SECONDS must be ≥ 0 (got ${cfg.closeAfterSeconds}).`);
+    errors.push(`CLOSE_AFTER_SECONDS must be ≥ 0 (got ${cfg.closeAfterSeconds}). Set to 0 to disable time-based exit.`);
   }
 
   const openaiKey = (process.env.OPENAI_API_KEY ?? "").trim();
@@ -116,10 +135,14 @@ export function validateBotEnv(): void {
   }
 
   if (cfg.clobChainId !== 137) {
-    console.warn(`CLOB_CHAIN_ID is ${cfg.clobChainId} (Polymarket mainnet is usually 137).`);
+    console.warn(`⚠️  CLOB_CHAIN_ID is ${cfg.clobChainId} — Polymarket mainnet is 137.`);
   }
 
-  console.log("Environment OK — starting bot.");
+  if (cfg.liveTradingEnabled) {
+    console.log("✅ Environment OK — LIVE trading mode (real orders will be placed).");
+  } else {
+    console.log("✅ Environment OK — PAPER mode (no PRIVATE_KEY set, signals logged only, no real orders).");
+  }
 }
 
 export function validateUiEnv(): void {
