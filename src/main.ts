@@ -41,6 +41,7 @@ async function loop() {
     const canEnterByConfidence = pred.confidence >= cfg.confidenceThreshold;
     const canEnterByTime = marketMeta.remainingSec < 0 || marketMeta.remainingSec > cfg.forceExitSeconds + 5;
     const side = pred.side;
+
     let action = `HOLD | conf=${pred.confidence.toFixed(2)} side=${side}`;
     if (canEnterByConfidence && canEnterByTime) {
       action = `OPEN ${side} | conf=${pred.confidence.toFixed(2)} ${pred.reason}`;
@@ -50,7 +51,10 @@ async function loop() {
       action = `HOLD | near expiry (${marketMeta.remainingSec}s left)`;
     }
 
-    if (cfg.liveTradingEnabled && (action.startsWith("OPEN YES") || action.startsWith("OPEN NO"))) {
+    // Re-read liveTradingEnabled as a getter (picks up hot .env reloads if any)
+    const live = cfg.liveTradingEnabled;
+
+    if (live && (action.startsWith("OPEN YES") || action.startsWith("OPEN NO"))) {
       const conditionId = connector.getConditionId();
       if (hasOpenPosition(marketId)) {
         logger.default.info(`  SKIP | already in position (${marketId})`);
@@ -70,18 +74,22 @@ async function loop() {
               sizeShares: Math.floor(sizeShares * 100) / 100,
               openedAt: Date.now()
             });
-            logger.default.info(`  LIVE BUY orderID=${res.orderID} status=${res.status}`);
+            const feeNote = res.feeRateBps != null ? ` fee=${res.feeRateBps}bps` : "";
+            logger.default.info(`  LIVE BUY orderID=${res.orderID} status=${res.status}${feeNote}`);
           } else {
             logger.default.error(`  LIVE BUY failed: ${res.errorMsg}`);
           }
         }
       }
+    } else if (!live && (action.startsWith("OPEN YES") || action.startsWith("OPEN NO"))) {
+      // Paper mode — signal would trade but we don't
+      logger.default.info(`  PAPER | would ${action} (no PRIVATE_KEY set)`);
     }
 
-    if (cfg.liveTradingEnabled && marketMeta.remainingSec >= 0 && marketMeta.remainingSec <= cfg.forceExitSeconds) {
+    if (live && marketMeta.remainingSec >= 0 && marketMeta.remainingSec <= cfg.forceExitSeconds) {
       const due = getOpenPositions().filter((p) => p.marketId === marketId);
       for (const pos of due) {
-        const priceLimit = 0.01;
+        const priceLimit = 0.05; // raised from 0.01 — realistic floor; sell() will GTC-fallback if FOK misses
         const res = await sell(pos.tokenId, pos.sizeShares, priceLimit);
         if (res.success) {
           removePosition(pos.marketId);
@@ -90,23 +98,24 @@ async function loop() {
           logger.default.error(`  FORCE EXIT failed ${pos.marketId}: ${res.errorMsg}`);
         }
       }
-    } else if (cfg.liveTradingEnabled && cfg.closeAfterSeconds > 0) {
+    } else if (live && cfg.closeAfterSeconds > 0) {
       const due = getPositionsDueToClose(cfg.closeAfterSeconds);
       for (const pos of due) {
-        const priceLimit = 0.01;
+        const priceLimit = 0.05;
         const res = await sell(pos.tokenId, pos.sizeShares, priceLimit);
         if (res.success) {
           removePosition(pos.marketId);
-          logger.default.info(`  LIVE SELL closed ${pos.marketId} orderID=${res.orderID}`);
+          logger.default.info(`  TIMED CLOSE ${pos.marketId} orderID=${res.orderID}`);
         } else {
-          logger.default.error(`  LIVE SELL failed ${pos.marketId}: ${res.errorMsg}`);
+          logger.default.error(`  TIMED CLOSE failed ${pos.marketId}: ${res.errorMsg}`);
         }
       }
     }
 
-    logger.default.info(`[${new Date().toISOString()}] ${action}`);
+    const modeTag = live ? "LIVE" : "PAPER";
+    logger.default.info(`[${new Date().toISOString()}] [${modeTag}] ${action}`);
     logger.default.info(
-      `  p5m=${pred.pUp5m.toFixed(3)} conf=${pred.confidence.toFixed(2)} rem=${marketMeta.remainingSec}s side=${pred.side}`
+      `  p5m=${pred.pUp5m.toFixed(3)} conf=${pred.confidence.toFixed(2)} rem=${marketMeta.remainingSec}s side=${pred.side} whales=${features.winrateWhaleCount}`
     );
   } catch (err) {
     logger.default.error("loop error", err);
